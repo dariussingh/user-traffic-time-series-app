@@ -83,6 +83,15 @@ y_pred = model.predict(start=n_steps,end=len(data)-1)
 mse = mean_squared_error(y, y_pred)
 rmse = np.sqrt(mse)
 
+fig = plt.figure(figsize=(16,5), dpi=100)
+plt.plot(data['Date'][n_steps:], y, label='True')
+plt.plot(data['Date'][n_steps:], y_pred, label='Predicted')
+plt.title('True vs Predicted User Traffic')
+plt.xlabel('Date')
+plt.ylabel('User Traffic')
+plt.legend()
+st.pyplot(fig)
+
 def predict(date, data, n_steps):
     date = datetime.strptime(date, '%Y-%m-%d')
     last_date = str(data['Date'].values[-1]).split('T')[0]
@@ -91,23 +100,33 @@ def predict(date, data, n_steps):
     min_date = datetime.strptime(min_date, '%Y-%m-%d')
     
     if min_date<=date<=last_date:
+        actual_exists = True
         traffic = data[data['Date']==date]
-        traffic = traffic['User Traffic']
-        traffic = list(traffic)[0]
+        idx = traffic.index[0]
+        traffic = model.predict(start=idx,end=idx+1)
+        traffic = list(traffic)[-1]
     elif date>last_date:
+        actual_exists = False
         delta = date-last_date
         delta = delta.days
         traffic = model.predict(start=len(data)-1,end=len(data)-1+delta)
         traffic = list(traffic)[-1]
     else:
-        return 'Error'
+        return 'Error', False
     
-    return traffic
+    return traffic, actual_exists
 
-date = st.date_input('Date')
+date = st.date_input('Date (choose date between 2022/01/01 to 2022/03/05 for actual traffic to be shown with predicted traffic)', min_value=datetime(2022,1,1), value=datetime(2022,2,11))
 date = date.strftime('%Y-%m-%d')
 if st.button('Predict User Traffic'):
-    output = predict(date, data, n_steps=n_steps)
+    traffic, actual_exists = predict(date, data, n_steps=n_steps)
+    if actual_exists:
+        st.write(f"""
+        ### Actual
+        User Traffic on {date} is **{list(data.loc[data['Date']==date, 'User Traffic'])[0]}** users.
+        """)
+    
     st.write(f"""
-    User Traffic on {date} is **{int(output-rmse)}** and **{int(output+rmse)}** users.
+    ### Predicted
+    User Traffic on {date} is between **{int(traffic-rmse)}** and **{int(traffic+rmse)}** users.
     """)
